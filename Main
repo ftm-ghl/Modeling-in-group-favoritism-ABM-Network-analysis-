@@ -1,0 +1,394 @@
+# main functions
+
+### required libraries :
+
+{
+  library(ggplot2)
+  library(latex2exp)
+  library(cowplot)#ggdraw
+  library(tictoc)
+  library(reshape2)#melt
+  library(xtable)
+  library(igraph)
+  library(RColorBrewer)
+  library(inlmisc)
+  library(tidygraph)
+  library(ggraph)
+  library(ggplot2)
+  library(scales)
+}
+
+
+## building adjacency matrix :
+
+build_adjacency_matrix <- function(
+    round_data,
+    n_players
+){
+
+    adj_matrix <- matrix(
+        0,
+        nrow = n_players,
+        ncol = n_players
+    )
+
+    adj_matrix[
+        cbind(
+            round_data$fromPlayer,
+            round_data$toPlayer
+        )
+    ] <- 1
+
+    adj_matrix
+}
+
+## building cumulative adjacency matrix (since we have 40 rounds in game) 
+
+build_cumulative_network <- function(
+    adjacency_list
+){
+
+    cumulative_list <- vector(
+        "list",
+        length(adjacency_list)
+    )
+
+    cumulative_list[[1]] <- adjacency_list[[1]]
+
+    for(i in 2:length(adjacency_list)){
+
+        cumulative_list[[i]] <-
+            cumulative_list[[i - 1]] +
+            adjacency_list[[i]]
+
+    }
+
+    cumulative_list
+}
+
+
+## function to simulate null game in which agent's intercations are random 
+
+simulate_random_game <- function(
+    n_players,
+    n_rounds
+){
+
+    adjacency_list <- vector(
+        "list",
+        n_rounds
+    )
+
+    cumulative_list <- vector(
+        "list",
+        n_rounds
+    )
+
+    for(round in seq_len(n_rounds)){
+
+        adj <- matrix(
+            0,
+            n_players,
+            n_players
+        )
+
+        targets <- sample(
+            seq_len(n_players),
+            size = n_players,
+            replace = TRUE
+        )
+
+        adj[
+            cbind(
+                seq_len(n_players),
+                targets
+            )
+        ] <- 1
+
+        adjacency_list[[round]] <- adj
+
+        cumulative_list[[round]] <-
+            if(round == 1)
+                adj
+            else
+                cumulative_list[[round-1]] + adj
+    }
+
+    list(
+        AdjMat = adjacency_list,
+        CAdjMat = cumulative_list
+    )
+}
+
+
+## function for constructing networks:
+
+### Build network object
+
+create_network <- function(adj_matrix){
+
+  net <- graph_from_adjacency_matrix(
+    adj_matrix,
+    mode = "undirected",
+    weighted = TRUE,
+    diag = TRUE
+  )
+
+  net <- simplify(
+    net,
+    remove.loops = TRUE,
+    remove.multiple = FALSE
+  )
+
+  return(net)
+}
+
+### Convert network to tidygraph
+
+create_tbl_graph <- function(
+    adj_matrix,
+    node_influence,
+    group_membership,
+    n_rounds
+){
+
+  net <- create_network(adj_matrix)
+
+  graph_tbl <- as_tbl_graph(net)
+
+  graph_tbl <- graph_tbl %>%
+    activate(nodes) %>%
+    mutate(
+
+      influence = node_influence,
+
+      self_giving =
+        diag(adj_matrix),
+
+      group =
+        factor(group_membership),
+
+      node_size =
+        scales::rescale(
+          influence,
+          to = c(8,20)
+        ),
+
+      border_width =
+        1 +
+        4 *
+        self_giving /
+        (2 * n_rounds)
+
+    )
+
+  return(graph_tbl)
+}
+
+
+### Plot single network
+
+plot_network <- function(
+    adj_matrix,
+    node_influence,
+    group_membership,
+    n_rounds,
+    title = NULL
+){
+
+  graph_tbl <- create_tbl_graph(
+    adj_matrix = adj_matrix,
+    node_influence = node_influence,
+    group_membership = group_membership,
+    n_rounds = n_rounds
+  )
+
+  p <- ggraph(
+    graph_tbl,
+    layout = "fr"
+  ) +
+
+    geom_edge_link(
+      aes(
+        width = weight,
+        alpha = weight
+      ),
+      colour = "grey40"
+    ) +
+
+    geom_node_point(
+      aes(
+        size = node_size,
+        fill = group,
+        stroke = border_width
+      ),
+      shape = 21,
+      colour = "black"
+    ) +
+
+    geom_node_text(
+      aes(
+        label = row_number()
+      ),
+      size = 3
+    ) +
+
+    scale_fill_manual(
+      values = c(
+        "#E64B35",
+        "#4DBBD5"
+      )
+    ) +
+
+    scale_edge_width(
+      range = c(0.5,3)
+    ) +
+
+    theme_graph() +
+
+    ggtitle(title) +
+
+    theme(
+      plot.title = element_text(
+        hjust = 0.5,
+        face = "bold",
+        size = 14
+      )
+    )
+
+  return(p)
+}
+
+# Plot all games
+
+plot_all_networks <- function(
+    cumulative_matrices,
+    influence_data,
+    group_membership,
+    round_no = 40,
+    trial_no = 2
+){
+
+  n_games <- length(
+    cumulative_matrices
+  )
+
+  plot_list <- vector(
+    "list",
+    n_games
+  )
+
+  for(game in seq_len(n_games)){
+
+    node_influence <-
+      rowSums(
+        influence_data[
+          ,
+          game,
+          c(2,3)
+        ]
+      ) / 2
+
+    adj_matrix <-
+      cumulative_matrices[[game]][[trial_no]][[round_no]]
+
+    adj_matrix <-
+      adj_matrix +
+      t(adj_matrix)
+
+    plot_list[[game]] <-
+
+      plot_network(
+
+        adj_matrix =
+          adj_matrix,
+
+        node_influence =
+          node_influence,
+
+        group_membership =
+          group_membership[[game]],
+
+        n_rounds =
+          round_no,
+
+        title =
+          paste(
+            "Game",
+            game
+          )
+
+      )
+
+  }
+
+  return(plot_list)
+}
+
+# Save plots
+
+save_network_plots <- function(
+    plot_list,
+    output_dir = "figures"
+){
+
+  if(!dir.exists(output_dir))
+    dir.create(
+      output_dir,
+      recursive = TRUE
+    )
+
+  for(i in seq_along(plot_list)){
+
+    ggsave(
+      filename =
+        file.path(
+          output_dir,
+          paste0(
+            "network_game_",
+            i,
+            ".png"
+          )
+        ),
+
+      plot =
+        plot_list[[i]],
+
+      width = 8,
+      height = 6,
+      dpi = 300
+    )
+  }
+}
+
+
+
+source(
+  "R/plotting/network_visualization.R"
+)
+
+network_plots <-
+
+  plot_all_networks(
+
+    cumulative_matrices =
+      CumulativeAdjacencyMatrices,
+
+    influence_data =
+      Infl_players_G_TG$mean_abs_diff_norm,
+
+    group_membership =
+      GroupMemb,
+
+    round_no = 40,
+
+    trial_no = 2
+
+  )
+
+network_plots[[1]]
+network_plots[[2]]
+network_plots[[3]]
+network_plots[[4]]
+
+
