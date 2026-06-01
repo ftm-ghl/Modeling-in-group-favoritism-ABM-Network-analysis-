@@ -1,0 +1,128 @@
+#Homophily
+
+library(reshape2)
+library(ggplot2)
+
+df_hom <- data.frame(
+  Round = 1:40,
+  homophily_results
+)
+
+colnames(df_hom) <- c(
+  "Round",
+  paste0("Game",1:NoGames)
+)
+
+df_hom_long <- melt(
+  df_hom,
+  id.vars="Round"
+)
+
+ggplot(
+  df_hom_long,
+  aes(
+    x=Round,
+    y=value,
+    colour=variable
+  )
+)+
+  geom_line(linewidth=1.2)+
+  geom_point(size=2)+
+  theme_classic()+
+  labs(
+    y="Homophily Index",
+    colour="Game"
+  )
+
+
+# Reciprocity
+
+df_rec <- data.frame(
+  Round = 1:40,
+  reciprocity_results
+)
+
+colnames(df_rec) <- c(
+  "Round",
+  paste0("Game",1:NoGames)
+)
+
+df_rec_long <- melt(
+  df_rec,
+  id.vars="Round"
+)
+
+ggplot(
+  df_rec_long,
+  aes(
+    x=Round,
+    y=value,
+    colour=variable
+  )
+)+
+  geom_line(linewidth=1.2)+
+  geom_point(size=2)+
+  theme_classic()+
+  labs(
+    y="Reciprocity",
+    colour="Game"
+  )
+
+
+# Density 
+
+library(igraph)
+
+density_results <- matrix(
+  NA,
+  nrow=40,
+  ncol=NoGames
+)
+
+for(game in 1:NoGames){
+
+  for(round in 1:40){
+
+    g <- graph_from_adjacency_matrix(
+      CumulativeAdjacencyMatrices[[game]][[round]],
+      mode="directed",
+      weighted=TRUE,
+      diag=FALSE
+    )
+
+    density_results[round,game] <-
+      edge_density(g)
+
+  }
+
+}
+
+
+# Emergence of Reciprocity & Homophily
+
+find_emergence <- function(x){
++     
++     threshold <- 0.8 * max(x)
++     
++     which(x >= threshold)[1]
++     
++ }
+> data.frame(
++     
++     Game = paste0("Game",1:NoGames),
++     
++     HomophilyEmergence =
++         apply(
++             homophily_results,
++             2,
++             find_emergence
++         ),
++     
++     ReciprocityEmergence =
++         apply(
++             reciprocity_results,
++             2,
++             find_emergence
++         )
++     
++ )
