@@ -95,3 +95,130 @@ game1_strength <-
 
 View(game1_strength)
 head(game1_strength)
+
+
+##plot 
+
+library(tidyverse)
+
+plot_degree_groups <- function(df, game_name){
+
+  df_long <- df %>%
+    select(
+      player,
+      in_degree_ingroup,
+      in_degree_outgroup,
+      out_degree_ingroup,
+      out_degree_outgroup
+    ) %>%
+    pivot_longer(
+      -player,
+      names_to = "measure",
+      values_to = "value"
+    )
+
+  ggplot(
+    df_long,
+    aes(
+      x = factor(player),
+      y = value,
+      fill = measure
+    )
+  ) +
+    geom_col(position = "dodge") +
+    theme_minimal(base_size = 14) +
+    labs(
+      title = game_name,
+      x = "Player",
+      y = "Weighted Degree"
+    )
+
+}
+
+# Barplot (ingroup vs outgroup degree)
+
+for(i in 1:4){
+
+  plot_degree_groups(
+    degree_tables[[i]],
+    paste("Game", i)
+  )
+
+}
+
+# Barplot (ingroup vs outgroup giving )
+
+ggplot(
+  degree_tables$Game_1,
+  aes(
+    x = factor(player)
+  )
+)+
+
+geom_col(
+  aes(y = out_degree_ingroup),
+  fill = "steelblue"
+)+
+
+geom_col(
+  aes(y = -out_degree_outgroup),
+  fill = "tomato"
+)+
+
+theme_minimal() +
+
+labs(
+  title = "Ingroup vs Outgroup Giving",
+  x = "Player",
+  y = "Weighted Out-Degree"
+)
+
+
+### Heatmap
+
+library(reshape2)
+
+plot_heatmap <- function(adj_matrix){
+
+  df <- melt(adj_matrix)
+
+  ggplot(
+    df,
+    aes(
+      Var2,
+      Var1,
+      fill = value
+    )
+  ) +
+
+    geom_tile() +
+
+    scale_fill_gradient(
+      low = "white",
+      high = "darkred"
+    ) +
+
+    theme_minimal() +
+
+    labs(
+      x = "Receiver",
+      y = "Sender",
+      fill = "Tokens"
+    )
+
+}
+
+
+plot_heatmap(
+  CumulativeAdjacencyMatrices[[1]][[40]]
+)
+
+for(i in 1:4){
+
+plot_heatmap(
+CumulativeAdjacencyMatrices [[i]][[r]]
+  )
+
+}
+
+
