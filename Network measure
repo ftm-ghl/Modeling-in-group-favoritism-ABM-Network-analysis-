@@ -1,0 +1,97 @@
+# netwok analysis
+
+### in-degree and out-degree
+
+calculate_group_strength <- function(
+    adj_matrix,
+    group_membership
+){
+
+    n <- nrow(adj_matrix)
+
+    result <- data.frame(
+        player = seq_len(n),
+
+        self_giving = 0,
+
+        out_degree_ingroup = 0,
+        out_degree_outgroup = 0,
+
+        in_degree_ingroup = 0,
+        in_degree_outgroup = 0
+    )
+
+    for(i in seq_len(n)){
+
+        ingroup_nodes <-
+            setdiff(
+                which(
+                    group_membership ==
+                    group_membership[i]
+                ),
+                i
+            )
+
+        outgroup_nodes <-
+            which(
+                group_membership !=
+                group_membership[i]
+            )
+
+        result$self_giving[i] <-
+            adj_matrix[i,i]
+
+        result$out_degree_ingroup[i] <-
+            sum(
+                adj_matrix[
+                    i,
+                    ingroup_nodes
+                ]
+            )
+
+        result$out_degree_outgroup[i] <-
+            sum(
+                adj_matrix[
+                    i,
+                    outgroup_nodes
+                ]
+            )
+
+        result$in_degree_ingroup[i] <-
+            sum(
+                adj_matrix[
+                    ingroup_nodes,
+                    i
+                ]
+            )
+
+        result$in_degree_outgroup[i] <-
+            sum(
+                adj_matrix[
+                    outgroup_nodes,
+                    i
+                ]
+            )
+    }
+
+    result$total_out_degree <-
+        result$out_degree_ingroup +
+        result$out_degree_outgroup
+
+    result$total_in_degree <-
+        result$in_degree_ingroup +
+        result$in_degree_outgroup
+
+    result
+
+}
+
+
+game1_strength <-
+    calculate_group_strength(
+        CumulativeAdjacencyMatrices[[1]][[40]],
+        GroupMemb[[1]]
+    )
+
+View(game1_strength)
+head(game1_strength)
