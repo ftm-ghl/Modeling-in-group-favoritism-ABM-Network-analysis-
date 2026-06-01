@@ -1,0 +1,51 @@
+library(igraph)
+
+par(mfrow=c(2,2))
+
+for(game in 1:4){
+
+  adj <- CumulativeAdjacencyMatrices[[game]][[40]]
+
+  net <- adj + t(adj)
+
+  net[net < 5] <- 0
+
+  g <- graph_from_adjacency_matrix(
+    net,
+    mode="undirected",
+    weighted=TRUE,
+    diag=FALSE
+  )
+
+  E(g)$width <-
+    scales::rescale(
+      E(g)$weight,
+      c(1,8)
+    )
+
+  E(g)$color <- "grey60"
+
+  V(g)$color <-
+    ifelse(
+      GroupMemb[[game]]==1,
+      "salmon",
+      "steelblue"
+    )
+
+  V(g)$size <-
+    scales::rescale(
+      strength(g),
+      c(15,35)
+    )
+
+  plot(
+    g,
+    layout=layout_with_fr(g),
+    vertex.label=1:vcount(g),
+    main=paste("Game",game)
+  )
+}
+
+
+
+
